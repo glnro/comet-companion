@@ -5,29 +5,24 @@ import (
 	"log"
 
 	"context"
-	grpcclient "github.com/comet/comet-companion/client/client/grpc"
+	cometclient "github.com/cometbft/cometbft/rpc/grpc/client"
 	"time"
 )
 
 func main() {
-	fmt.Println("hello world")
-
-	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer ctxCancel()
 
-	client, err := grpcclient.New(
+	client, err := cometclient.New(
 		ctx,
 		fmt.Sprintf("localhost:%v", 5702),
-		grpcclient.WithInsecure(),
+		cometclient.WithInsecure(),
 	)
 	if err != nil {
 		log.Panicf("Unable to connect to grpc")
 	}
 
 	fmt.Println("Connected to client")
-
-	// Wait for comet to produce a few blocks
-	//time.Sleep(time.Second * 60)
 
 	for {
 		res, err := client.GetVersion(ctx)
