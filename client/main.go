@@ -1,35 +1,31 @@
 package main
 
 import (
-	"fmt"
-	"log"
-
 	"context"
-	cometclient "github.com/cometbft/cometbft/rpc/grpc/client"
+	"fmt"
+	cl "github.com/comet/comet-companion/client/client/grpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"time"
 )
 
 func main() {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer ctxCancel()
+	addr := "127.0.0.1:5702"
 
-	client, err := cometclient.New(
-		ctx,
-		fmt.Sprintf("localhost:%v", 5702),
-		cometclient.WithInsecure(),
-	)
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Panicf("Unable to connect to grpc")
+		fmt.Errorf("failed to dial %s: %w", addr, err)
 	}
+	defer conn.Close()
+	fmt.Println("connected to client")
 
-	fmt.Println("Connected to client")
+	versionClient := cl.NewVersionServiceClient(conn)
 
-	for {
-		res, err := client.GetVersion(ctx)
-		if err != nil {
-			log.Fatalf("Unable to fetch latest client %v", err.Error())
-		}
-
-		fmt.Sprintf("Response: %v", res)
+	res, err := versionClient.GetVersion(ctx)
+	if err != nil {
+		fmt.Errorf("failed to retrieve version: %s: %w", addr, err)
 	}
+	fmt.Println(fmt.Sprintf("Response: %v", res.ABCI))
 }

@@ -12,29 +12,30 @@ import (
 	cmtnet "github.com/cometbft/cometbft/libs/net"
 )
 
-type Option func(*clientBuilder)
+type Option func(*ClientBuilder)
 
 // Client defines the full client interface for interacting with a CometBFT
 // node via gRPC.
 type Client interface {
+	Connection() grpc.ClientConn
 	VersionServiceClient
 	//BlockServiceClient
 	BlockResultsServiceClient
 }
 
-type clientBuilder struct {
+type ClientBuilder struct {
 	dialerFunc func(context.Context, string) (net.Conn, error)
-	grpcOpts   []ggrpc.DialOption
+	GrpcOpts   []ggrpc.DialOption
 
 	versionServiceEnabled      bool
 	blockServiceEnabled        bool
 	blockResultsServiceEnabled bool
 }
 
-func newClientBuilder() *clientBuilder {
-	return &clientBuilder{
+func NewClientBuilder() *ClientBuilder {
+	return &ClientBuilder{
 		dialerFunc:                 defaultDialerFunc,
-		grpcOpts:                   make([]ggrpc.DialOption, 0),
+		GrpcOpts:                   make([]ggrpc.DialOption, 0),
 		versionServiceEnabled:      true,
 		blockServiceEnabled:        true,
 		blockResultsServiceEnabled: true,
@@ -46,11 +47,15 @@ func defaultDialerFunc(ctx context.Context, addr string) (net.Conn, error) {
 }
 
 type client struct {
-	conn grpc.ClientConn
+	Conn grpc.ClientConn
 
 	VersionServiceClient
 	//BlockServiceClient
 	BlockResultsServiceClient
+}
+
+func (c client) Connection() grpc.ClientConn {
+	return c.Conn
 }
 
 // WithInsecure disables transport security for the underlying client
@@ -68,7 +73,7 @@ func WithInsecure() Option {
 // If disabled and the client attempts to access the version service API, the
 // client will panic.
 func WithVersionServiceEnabled(enabled bool) Option {
-	return func(b *clientBuilder) {
+	return func(b *ClientBuilder) {
 		b.versionServiceEnabled = enabled
 	}
 }
@@ -79,7 +84,7 @@ func WithVersionServiceEnabled(enabled bool) Option {
 // If disabled and the client attempts to access the block service API, the
 // client will panic.
 func WithBlockServiceEnabled(enabled bool) Option {
-	return func(b *clientBuilder) {
+	return func(b *ClientBuilder) {
 		b.blockServiceEnabled = enabled
 	}
 }
@@ -87,8 +92,8 @@ func WithBlockServiceEnabled(enabled bool) Option {
 // WithGRPCDialOption allows passing lower-level gRPC dial options through to
 // the gRPC dialer when creating the client.
 func WithGRPCDialOption(opt ggrpc.DialOption) Option {
-	return func(b *clientBuilder) {
-		b.grpcOpts = append(b.grpcOpts, opt)
+	return func(b *ClientBuilder) {
+		b.GrpcOpts = append(b.GrpcOpts, opt)
 	}
 }
 
@@ -102,17 +107,17 @@ func WithGRPCDialOption(opt ggrpc.DialOption) Option {
 // the appropriate gRPC credentials configuration. See
 // https://pkg.go.dev/google.golang.org/grpc#WithTransportCredentials
 func New(ctx context.Context, addr string, opts ...Option) (Client, error) {
-	builder := newClientBuilder()
+	builder := NewClientBuilder()
 	for _, opt := range opts {
 		opt(builder)
 	}
-	conn, err := ggrpc.DialContext(ctx, addr, builder.grpcOpts...)
+	conn, err := ggrpc.DialContext(ctx, addr, builder.GrpcOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial %s: %w", addr, err)
 	}
 	versionServiceClient := newDisabledVersionServiceClient()
 	if builder.versionServiceEnabled {
-		versionServiceClient = newVersionServiceClient(conn)
+		versionServiceClient = NewVersionServiceClient(conn)
 	}
 	//blockServiceClient := newDisabledBlockServiceClient()
 	//if builder.blockServiceEnabled {
@@ -123,7 +128,7 @@ func New(ctx context.Context, addr string, opts ...Option) (Client, error) {
 		blockResultServiceClient = newBlockResultsServiceClient(conn)
 	}
 	client := &client{
-		conn:                 conn,
+		Conn:                 conn,
 		VersionServiceClient: versionServiceClient,
 		//BlockServiceClient:        blockServiceClient,
 		BlockResultsServiceClient: blockResultServiceClient,

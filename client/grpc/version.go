@@ -25,7 +25,7 @@ type versionServiceClient struct {
 	client v1.VersionServiceClient
 }
 
-func newVersionServiceClient(conn grpc.ClientConn) VersionServiceClient {
+func NewVersionServiceClient(conn grpc.ClientConn) VersionServiceClient {
 	return &versionServiceClient{
 		client: v1.NewVersionServiceClient(conn),
 	}
